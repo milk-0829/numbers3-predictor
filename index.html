@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ナンバーズ3予想アプリ</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2em; }
+    button { padding: 1em 2em; font-size: 1.2em; }
+    #result { font-size: 2em; margin-top: 1em; color: #0077cc; }
+  </style>
+</head>
+<body>
+  <h1>🎯 ナンバーズ3予想アプリ</h1>
+  <p>ボタンを押すと、ランダムな3桁の数字を予想します！</p>
+  <button onclick="generatePrediction()">予想する</button>
+  <div id="result"></div>
+
+  <script>
+    function generatePrediction() {
+      const digits = [];
+      for (let i = 0; i < 3; i++) {
+        digits.push(Math.floor(Math.random() * 10));
+      }
+      document.getElementById("result").textContent = digits.join("");
+    }
+  </script>
+</body>
+</html>
