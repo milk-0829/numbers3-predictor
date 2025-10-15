@@ -1,27 +1,247 @@
-<!DOCTYPE html>
+型で絞る」<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <title>ナンバーズ3予想アプリ</title>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 2em; }
-    button { padding: 1em 2em; font-size: 1.2em; }
+    button { padding: 1em 2em; font-size: 1.2em; margin: 0.5em; }
     #result { font-size: 2em; margin-top: 1em; color: #0077cc; }
   </style>
 </head>
 <body>
   <h1>🎯 ナンバーズ3予想アプリ</h1>
+  <h2>📂 過去の当選データを読み込む</h2>
+  <input type="file" id="csvFile" accept=".csv,.txt">
+  <button onclick="loadCSV()">読み込む</button>
+  <div id="csvOutput"></div>
+
   <p>ボタンを押すと、ランダムな3桁の数字を予想します！</p>
   <button onclick="generatePrediction()">予想する</button>
-  <div id="result"></div>
+  <button onclick="generateSmartPrediction()">頻度で予測する</button>
+  <button onclick="drawFromPastData()">過去から抽選する</button>
+  <h3>📊 頻度から型別予測（新規生成）</h3>
+<button onclick="generatePatternOneEach()">出現パターン型で予測する</button>
+  <button onclick="generatePatternOneEach()">出現パターン型で予測する</button>
+<h3>🧩 型を指定して過去から抽選</h3>
+<button onclick="drawFromPastByType('バラバラ')">バラバラ型から抽選</button>
+<button onclick="drawFromPastByType('ダブル')">ダブル型から抽選</button>
+<button onclick="drawFromPastByType('ゾロ目')">ゾロ目型から抽選</button>
+  <h3>出現パターン型の予測（1種類ずつ）</h3>
+  <div id="patternBarabaraOne"></div>
+  <div id="patternDoubleOne"></div>
+  <div id="patternZoroOne"></div>
 
+  <div id="result"></div>
+<h3>📊 型別出現数グラフ</h3>
+<canvas id="typeChart" width="400" height="300"></canvas>
+<button onclick="showTypeDistribution()">型別出現数をグラフで表示</button>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
+    function analyzeFrequency(data) {
+      const freq = Array(10).fill(0);
+      data.forEach(row => {
+        const number = row.number;
+        if (number && typeof number === "string") {
+          number.split("").forEach(d => {
+            const digit = parseInt(d);
+            if (!isNaN(digit)) freq[digit]++;
+          });
+        }
+      });
+      return freq;
+    }
+
     function generatePrediction() {
       const digits = [];
       for (let i = 0; i < 3; i++) {
         digits.push(Math.floor(Math.random() * 10));
       }
       document.getElementById("result").textContent = digits.join("");
+    }
+       function getNumberType(numStr) {
+  const [a, b, c] = numStr.split("");
+  if (a === b && b === c) return "ゾロ目";
+  if (a === b || b === c || a === c) return "ダブル";
+  return "バラバラ";
+}
+function drawFromPastByType(type) {
+  const rows = document.querySelectorAll("#csvOutput table tr");
+  const numbers = [];
+
+  rows.forEach((row, i) => {
+    if (i === 0) return;
+    const cells = row.querySelectorAll("td");
+    const num = cells[1]?.textContent?.trim();
+    if (/^\d{3}$/.test(num) && getNumberType(num) === type) {
+      numbers.push(num);
+    }
+  });
+
+  if (numbers.length === 0) {
+    alert(`「${type}型」のデータが見つかりませんでした`);
+    return;
+  }
+
+  const pick = numbers[Math.floor(Math.random() * numbers.length)];
+  document.getElementById("result").textContent = `${type}型から抽選：${pick}`;
+}
+    function generateSmartPrediction() {
+      const freqList = Array.from(document.querySelectorAll("#csvOutput ul li")).map(li => {
+        const match = li.textContent.match(/(\d)：(\d+)回/);
+        return match ? { digit: parseInt(match[1]), count: parseInt(match[2]) } : null;
+      }).filter(Boolean);
+
+      if (freqList.length < 3) {
+        alert("十分な頻度データがありません。CSVを読み込んでください。");
+        return;
+      }
+
+      const sorted = freqList.sort((a, b) => b.count - a.count).slice(0, 3);
+      const prediction = sorted.map(item => item.digit).join("");
+      document.getElementById("result").textContent = prediction;
+    }
+
+    function drawFromPastData() {
+      const rows = document.querySelectorAll("#csvOutput table tr");
+      const numbers = [];
+
+      rows.forEach((row, i) => {
+        if (i === 0) return;
+        const cells = row.querySelectorAll("td");
+        const num = cells[1]?.textContent?.trim();
+        if (/^\d{3}$/.test(num)) numbers.push(num);
+      });
+
+      if (numbers.length === 0) {
+        alert("過去データが読み込まれていません");
+        return;
+      }
+
+      const randomPick = numbers[Math.floor(Math.random() * numbers.length)];
+      document.getElementById("result").textContent = `過去から抽選：${randomPick}`;
+    }
+function showTypeDistribution() {
+  const rows = document.querySelectorAll("#csvOutput table tr");
+  let counts = { バラバラ: 0, ダブル: 0, ゾロ目: 0 };
+
+  rows.forEach((row, i) => {
+    if (i === 0) return;
+    const cells = row.querySelectorAll("td");
+    const num = cells[1]?.textContent?.trim();
+    if (/^\d{3}$/.test(num)) {
+      const type = getNumberType(num);
+      counts[type]++;
+    }
+  });
+
+  const ctx = document.getElementById("typeChart").getContext("2d");
+  new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["バラバラ型", "ダブル型", "ゾロ目型"],
+      datasets: [{
+        label: "出現数",
+        data: [counts["バラバラ"], counts["ダブル"], counts["ゾロ目"]],
+        backgroundColor: ["#4caf50", "#ff9800", "#f44336"]
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+    function generatePatternOneEach() {
+      const freqList = Array.from(document.querySelectorAll("#csvOutput ul li")).map(li => {
+        const match = li.textContent.match(/(\d)：(\d+)回/);
+        return match ? { digit: parseInt(match[1]), count: parseInt(match[2]) } : null;
+      }).filter(Boolean);
+
+      if (freqList.length < 3) {
+        alert("十分な頻度データがありません。CSVを読み込んでください。");
+        return;
+      }
+
+      const sorted = freqList.sort((a, b) => b.count - a.count);
+      const topDigits = sorted.slice(0, 6).map(item => item.digit);
+
+      let barabara = null;
+      for (let i = 0; i < topDigits.length; i++) {
+        for (let j = 0; j < topDigits.length; j++) {
+          for (let k = 0; k < topDigits.length; k++) {
+            if (i !== j && j !== k && i !== k) {
+              barabara = `${topDigits[i]}${topDigits[j]}${topDigits[k]}`;
+              break;
+            }
+          }
+          if (barabara) break;
+        }
+        if (barabara) break;
+      }
+
+      let double = null;
+      for (let i = 0; i < topDigits.length; i++) {
+        for (let j = 0; j < topDigits.length; j++) {
+          if (topDigits[i] !== topDigits[j]) {
+            double = `${topDigits[i]}${topDigits[i]}${topDigits[j]}`;
+            break;
+          }
+        }
+        if (double) break;
+      }
+
+      const zoro = `${topDigits[0]}${topDigits[0]}${topDigits[0]}`;
+
+      document.getElementById("patternBarabaraOne").textContent = `バラバラ型：${barabara}`;
+      document.getElementById("patternDoubleOne").textContent = `ダブル型：${double}`;
+      document.getElementById("patternZoroOne").textContent = `ゾロ目型：${zoro}`;
+    }
+
+    function loadCSV() {
+      const fileInput = document.getElementById("csvFile");
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("CSVファイルを選択してください");
+        return;
+      }
+
+      Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        complete: function(results) {
+          const rawData = results.data;
+          const cleanData = [];
+
+          let html = "<table border='1'><tr><th>日付</th><th>当選番号</th></tr>";
+
+          rawData.forEach((row, i) => {
+            const values = row.map(v => v.trim());
+            const date = values.find(v => /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(v));
+            const number = values.find(v => /^\d{3}$/.test(v));
+            if (date && number) {
+              html += `<tr><td>${date}</td><td>${number}</td></tr>`;
+              cleanData.push({ date, number });
+            } else {
+              console.log(`スキップされた行 ${i}:`, row);
+            }
+          });
+
+          html += "</table>";
+          document.getElementById("csvOutput").innerHTML = html;
+
+          const freq = analyzeFrequency(cleanData);
+          let freqHtml = "<h3>数字の出現頻度</h3><ul>";
+          freq.forEach((count, digit) => {
+            freqHtml += `<li>${digit}：${count}回</li>`;
+          });
+          freqHtml += "</ul>";
+          document.getElementById("csvOutput").innerHTML += freqHtml;
+        }
+      });
     }
   </script>
 </body>
